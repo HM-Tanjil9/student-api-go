@@ -12,6 +12,7 @@ import (
 
 	"github.com/HM-Tanjil9/student-api-go/internal/config"
 	"github.com/HM-Tanjil9/student-api-go/internal/http/handlers/student"
+	"github.com/HM-Tanjil9/student-api-go/internal/storage/sqlite"
 )
 
 func main() {
@@ -19,9 +20,15 @@ func main() {
 	cfg := config.MustLoad()
 
 	// database setup
+	storage, err := sqlite.New(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	slog.Info("Storage initialized", slog.String("env", cfg.Env))
 	// setup router
 	router := http.NewServeMux()
-	router.HandleFunc("POST /api/students", student.New())
+	router.HandleFunc("POST /api/students", student.New(storage))
 	// setup server
 	server := http.Server{
 		Addr:    cfg.Addr,
