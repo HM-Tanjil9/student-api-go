@@ -82,3 +82,86 @@ func GetList(storage storage.Storage) http.HandlerFunc {
 		response.WriteJson(w, http.StatusOK, students)
 	}
 }
+
+func UpdateStudent(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get ID from URL path
+		id := r.PathValue("id")
+		slog.Info("updating student", slog.String("id:", id))
+
+		intId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("invalid id format")))
+			return
+		}
+
+		// Decode request body
+		var student types.Student
+		err = json.NewDecoder(r.Body).Decode(&student)
+		if errors.Is(err, io.EOF) {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty body")))
+			return
+		}
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
+			return
+		}
+
+		// Request validation
+		if err := validator.New().Struct(student); err != nil {
+			validateErrors := err.(validator.ValidationErrors)
+			response.WriteJson(w, http.StatusBadRequest, response.ValidationError(validateErrors))
+			return
+		}
+
+		// Update student
+		err = storage.UpdateStudent(intId, student.Name, student.Email, student.Age)
+		if err != nil {
+			slog.Error("Error updating student", slog.String("id", id), slog.String("error", err.Error()))
+
+			// Check if it's a "not found" error
+			if err.Error() == fmt.Sprintf("student with id %d not found", intId) {
+				response.WriteJson(w, http.StatusNotFound, response.GeneralError(err))
+				return
+			}
+
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		slog.Info("Student updated successfully", slog.String("id", id))
+		response.WriteJson(w, http.StatusOK, map[string]string{"message": "student updated successfully"})
+	}
+}
+
+func DeleteStudent(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get ID from URL path
+		id := r.PathValue("id")
+		slog.Info("deleting student", slog.String("id:", id))
+
+		intId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("invalid id format")))
+			return
+		}
+
+		// Delete student
+		err = storage.DeleteStudent(intId)
+		if err != nil {
+			slog.Error("Error deleting student", slog.String("id", id), slog.String("error", err.Error()))
+
+			// Check if it's a "not found" error
+			if err.Error() == fmt.Sprintf("student with id %d not found", intId) {
+				response.WriteJson(w, http.StatusNotFound, response.GeneralError(err))
+				return
+			}
+
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		slog.Info("Student deleted successfully", slog.String("id", id))
+		response.WriteJson(w, http.StatusOK, map[string]string{"message": "student deleted successfully"})
+	}
+}

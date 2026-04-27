@@ -94,3 +94,87 @@ func (s *Sqlite) GetStudents() ([]types.Student, error) {
 	}
 	return students, nil
 }
+
+func (s *Sqlite) UpdateStudent(id int64, name string, email string, age int) error {
+	// Check if student exists first
+	var exists bool
+	checkStmt, err := s.Db.Prepare("SELECT EXISTS(SELECT 1 FROM students WHERE id = ?)")
+	if err != nil {
+		return fmt.Errorf("prepare check statement: %w", err)
+	}
+	defer checkStmt.Close()
+
+	err = checkStmt.QueryRow(id).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check existence: %w", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("student with id %d not found", id)
+	}
+
+	// Update the student
+	stmt, err := s.Db.Prepare("UPDATE students SET name = ?, email = ?, age = ? WHERE id = ?")
+	if err != nil {
+		return fmt.Errorf("prepare update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(name, email, age, id)
+	if err != nil {
+		return fmt.Errorf("execute update: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("student with id %d not found", id)
+	}
+
+	return nil
+}
+
+func (s *Sqlite) DeleteStudent(id int64) error {
+	// Check if student exists first
+	var exists bool
+	checkStmt, err := s.Db.Prepare("SELECT EXISTS(SELECT 1 FROM students WHERE id = ?)")
+	if err != nil {
+		return fmt.Errorf("prepare check statement: %w", err)
+	}
+	defer checkStmt.Close()
+
+	err = checkStmt.QueryRow(id).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check existence: %w", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("student with id %d not found", id)
+	}
+
+	// Delete the student
+	stmt, err := s.Db.Prepare("DELETE FROM students WHERE id = ?")
+	if err != nil {
+		return fmt.Errorf("prepare delete statement: %w", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return fmt.Errorf("execute delete: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("student with id %d not found", id)
+	}
+
+	return nil
+}
